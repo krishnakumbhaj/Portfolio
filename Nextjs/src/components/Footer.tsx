@@ -13,6 +13,8 @@ const ComingSoonPage: React.FC = () => {
   const [submitted, setSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [isFlying, setIsFlying] = useState(false);
+  const [isFadingIn, setIsFadingIn] = useState(false);
 
   const handleSubmit = async () => {
     if (!email) {
@@ -35,6 +37,20 @@ const ComingSoonPage: React.FC = () => {
       const data = await response.json();
 
       if (response.ok) {
+        // Trigger the fly animation
+        setIsFlying(true);
+        
+        // After fly animation completes (1.5s), wait 3 seconds then fade in
+        setTimeout(() => {
+          setIsFlying(false);
+          setIsFadingIn(true);
+          
+          // After fade in completes (0.6s), reset state
+          setTimeout(() => {
+            setIsFadingIn(false);
+          }, 600);
+        }, 4500); // 1.5s fly + 3s wait = 4.5s total
+        
         setSubmitted(true);
         setMessage(data.message);
         setEmail('');
@@ -89,15 +105,73 @@ const ComingSoonPage: React.FC = () => {
           </div>
 
           {/* Paper Plane Icon */}
-            <div className="inline-block transform hover:scale-110 transition-transform duration-300 cursor-pointer">
+            <div className="inline-block transform hover:scale-110 transition-transform duration-300 cursor-pointer relative">
                         <Image
                         src={Notify}
                         alt="Paper Plane Icon"
                         width={80}
                         height={40}
-                        className="mx-auto sm:w-[100px] sm:h-[50px]"
+                        className={`mx-auto sm:w-[100px] sm:h-[50px] transition-all duration-300
+                          ${isFlying ? 'animate-fly-arc' : ''}
+                          ${isFadingIn ? 'animate-fade-in' : ''}
+                          ${isFlying ? 'opacity-0' : isFadingIn ? '' : 'opacity-100'}
+                        `}
+                        style={{
+                          animationFillMode: 'forwards',
+                          willChange: isFlying || isFadingIn ? 'transform, opacity' : 'auto',
+                          backfaceVisibility: 'hidden',
+                        }}
                       />
             </div>
+
+            {/* Custom Animation Styles */}
+            <style jsx global>{`
+              @keyframes fly-arc {
+                0% {
+                  transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+                  opacity: 1;
+                }
+                20% {
+                  transform: translate3d(100px, -70px, 0) rotate(12deg) scale(1.08);
+                  opacity: 1;
+                }
+                45% {
+                  transform: translate3d(350px, -110px, 0) rotate(22deg) scale(1.02);
+                  opacity: 0.95;
+                }
+                70% {
+                  transform: translate3d(700px, -60px, 0) rotate(28deg) scale(0.95);
+                  opacity: 0.7;
+                }
+                100% {
+                  transform: translate3d(1200px, 20px, 0) rotate(32deg) scale(0.85);
+                  opacity: 0;
+                }
+              }
+              
+              @keyframes fade-in {
+                0% {
+                  transform: translate3d(0, 0, 0) scale(0.6);
+                  opacity: 0;
+                }
+                100% {
+                  transform: translate3d(0, 0, 0) scale(1);
+                  opacity: 1;
+                }
+              }
+              
+              .animate-fly-arc {
+                animation: fly-arc 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+                transform-style: preserve-3d;
+                -webkit-transform-style: preserve-3d;
+              }
+              
+              .animate-fade-in {
+                animation: fade-in 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+                transform-style: preserve-3d;
+                -webkit-transform-style: preserve-3d;
+              }
+            `}</style>
             
            {/* Email Subscription */}
          <div className="space-y-4">
