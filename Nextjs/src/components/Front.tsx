@@ -1,13 +1,38 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createNoise3D } from "simplex-noise";
 import { SparklesCore } from "./ui/sparkles";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
-
+import { Github as GithubIcon } from "lucide-react";
 export default function Front() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const isVisible = useScrollAnimation(contentRef, { threshold: 0.1 });
+
+  // Staggered animation state for content and GitHub logo
+  const [showContent, setShowContent] = useState([false, false, false, false]);
+  const [showGithub, setShowGithub] = useState(false);
+
+  useEffect(() => {
+    if (isVisible) {
+      // Stagger each content block by 0.3s
+      const timers = [0, 1, 2, 3].map((i) =>
+        setTimeout(() => {
+          setShowContent((prev) => {
+            const next = [...prev];
+            next[i] = true;
+            return next;
+          });
+        }, i * 300)
+      );
+      // Show GitHub logo after last content
+      const githubTimer = setTimeout(() => setShowGithub(true), 4 * 300);
+      return () => {
+        timers.forEach(clearTimeout);
+        clearTimeout(githubTimer);
+      };
+    }
+  }, [isVisible]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -156,29 +181,35 @@ export default function Front() {
       <div ref={contentRef} className="relative z-30 flex items-center justify-center w-full h-full px-6 sm:px-12 md:px-16">
         <div className="max-w-3xl">
           <h1 className={`text-4xl sm:text-5xl md:text-6xl border-l-4 sm:border-l-8 pl-2 border-[#294e90] font-bold tracking-tight leading-tight mb-4 sm:mb-5 text-white transition-opacity duration-1000 ${
-            isVisible ? 'opacity-100' : 'opacity-0'
+            showContent[0] ? 'opacity-100' : 'opacity-0'
           }`}>
             Krishna Sharma
           </h1>
           
-          <p className={`text-base sm:text-lg md:text-xl text-white font-medium mb-4 sm:mb-6 leading-relaxed transition-opacity duration-1000 delay-200 ${
-            isVisible ? 'opacity-100' : 'opacity-0'
+          <p className={`text-base sm:text-lg md:text-xl text-white font-medium mb-4 sm:mb-6 leading-relaxed transition-opacity duration-1000 ${
+            showContent[1] ? 'opacity-100' : 'opacity-0'
           }`}>
             Building intelligent systems with data, code, and curiosity
           </p>
           
-          <p className={`text-sm sm:text-base text-white leading-relaxed mb-4 sm:mb-5 transition-opacity duration-1000 delay-300 ${
-            isVisible ? 'opacity-100' : 'opacity-0'
+          <p className={`text-sm sm:text-base text-white leading-relaxed mb-4 sm:mb-5 transition-opacity duration-1000 ${
+            showContent[2] ? 'opacity-100' : 'opacity-0'
           }`}>
             I&apos;m a B.Tech Data Science student and software engineer who enjoys turning complex ideas into clean, working products. My interests sit around full-stack development, machine learning, and agent-driven AI systems — especially where data meets real-world impact.
           </p>
           
-          <p className={`text-sm sm:text-base text-white leading-relaxed transition-opacity duration-1000 delay-500 ${
-            isVisible ? 'opacity-100' : 'opacity-0'
+          <p className={`text-sm sm:text-base text-white leading-relaxed transition-opacity duration-1000 ${
+            showContent[3] ? 'opacity-100' : 'opacity-0'
           }`}>
             I like working close to the fundamentals: systems, logic, data flow, and scalability. For me, engineering is less about pressure and more about clarity and craftsmanship.
           </p>
         </div>
+      </div>
+      {/* Github logo bottom center */}
+      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-40 flex flex-col items-center">
+        <a href="https://github.com/krishnakumbhaj" target="_blank" rel="noopener noreferrer" aria-label="Krishna's Github">
+          <GithubIcon size={36} className={`mb-2 hover:scale-110 transition-transform duration-200 text-white transition-opacity duration-1000 ${showGithub ? 'opacity-100' : 'opacity-0'}`} />
+        </a>
       </div>
     </div>
   );
