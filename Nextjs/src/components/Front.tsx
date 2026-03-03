@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { createNoise3D } from "simplex-noise";
-import { SparklesCore } from "./ui/sparkles";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import { Github as GithubIcon } from "lucide-react";
+
 export default function Front() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -96,20 +96,7 @@ export default function Front() {
   }, []);
 
   return (
-    <div id="front" className="snap-section relative w-full h-screen overflow-hidden bg-black">
-      {/* Stars Background - everywhere with less density */}
-      <div className="w-full absolute inset-0 h-full z-20">
-        <SparklesCore
-          id="frontSparkles"
-          background="transparent"
-          minSize={0.4}
-          maxSize={1.4}
-          particleDensity={20}
-          className="w-full h-full"
-          particleColor="#FFFFFF"
-        />
-      </div>
-
+    <div id="front" className="snap-section snap-start relative w-full h-screen overflow-hidden bg-transparent">
       {/* Animated wavy background */}
       <canvas
         ref={canvasRef}
@@ -208,7 +195,7 @@ export default function Front() {
       {/* Github logo bottom center */}
       <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-40 flex flex-col items-center">
         <a href="https://github.com/krishnakumbhaj" target="_blank" rel="noopener noreferrer" aria-label="Krishna's Github">
-          <GithubIcon size={36} className={`mb-2 hover:scale-110 transition-transform duration-200 text-white transition-opacity duration-1000 ${showGithub ? 'opacity-100' : 'opacity-0'}`} />
+          <GithubIcon size={36} className={`mb-2 hover:scale-110 transition-all duration-500 text-white ${showGithub ? 'opacity-100' : 'opacity-0'}`} />
         </a>
       </div>
     </div>

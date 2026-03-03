@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import Notify from '@/app/images/Notify.png';
-import { SparklesCore } from './ui/sparkles';
 import Gmail from '@/app/images/Gmail.webp';
 import Instagram from '@/app/images/Instagram.jpg';
 import LinkedIn from '@/app/images/Linkedin.webp';
@@ -75,21 +74,7 @@ const ComingSoonPage: React.FC = () => {
   };
 
   return (
-    <div id="footer" className="snap-section min-h-screen bg-black text-white flex flex-col relative overflow-hidden">
-      {/* Sparkles Background */}
-      <div className="w-full absolute inset-0 h-full">
-        <SparklesCore
-          id="tsparticlesfullpage"
-          background="transparent"
-          minSize={0.4}
-          maxSize={1}
-          speed={0.2}
-          particleDensity={20}
-          className="w-full h-full"
-          particleColor="#FFFFFF"
-        />
-      </div>
-
+    <div id="footer" className="snap-section snap-start min-h-screen bg-transparent text-white flex flex-col relative overflow-hidden">
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-12 relative z-10">
         <div className="max-w-2xl w-full text-center space-y-8 sm:space-y-12">
@@ -171,6 +156,21 @@ const ComingSoonPage: React.FC = () => {
                 transform-style: preserve-3d;
                 -webkit-transform-style: preserve-3d;
               }
+              
+              @keyframes slide-down {
+                0% {
+                  transform: translate(-50%, -100%);
+                  opacity: 0;
+                }
+                100% {
+                  transform: translate(-50%, 0);
+                  opacity: 1;
+                }
+              }
+              
+              .animate-slide-down {
+                animation: slide-down 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+              }
             `}</style>
             
            {/* Email Subscription */}
@@ -194,15 +194,37 @@ const ComingSoonPage: React.FC = () => {
               <button
                 onClick={handleSubmit}
                 disabled={isLoading || submitted}
-                className="px-6 sm:px-8 py-2.5 sm:py-2 bg-[#294e90] hover:bg-[#1e3a6d] text-white text-xs sm:text-sm font-medium transition-colors duration-200 whitespace-nowrap shadow-lg shadow-cyan-900/50 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-1/2 sm:w-auto mx-auto sm:mx-0 px-6 sm:px-8 py-2.5 sm:py-2 bg-[#294e90] hover:bg-[#1e3a6d] text-white text-xs sm:text-sm font-medium transition-colors duration-200 whitespace-nowrap shadow-lg shadow-cyan-900/50 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? 'Sending...' : submitted ? 'Subscribed!' : 'Connect'}
               </button>
             </div>
+            {/* Toast Notification */}
             {message && (
-              <p className={`text-center text-sm ${message.includes('success') || submitted ? 'text-green-400' : 'text-red-400'}`}>
-                {message}
-              </p>
+              <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 animate-slide-down`}>
+                <div className={`px-6 py-3 rounded-lg shadow-2xl backdrop-blur-md border ${
+                  message.includes('success') || submitted 
+                    ? ' text-[#1DB954]' 
+                    : ' text-[#FF4C4C]'
+                } flex items-center gap-3`}>
+                  {/* Icon */}
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                    message.includes('success') || submitted ? 'bg-green-500' : 'bg-red-500'
+                  }`}>
+                    {message.includes('success') || submitted ? (
+                      <svg className="w-3 h-3 text-white" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+                        <path d="M5 13l4 4L19 7"></path>
+                      </svg>
+                    ) : (
+                      <svg className="w-3 h-3 text-white" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+                        <path d="M6 18L18 6M6 6l12 12"></path>
+                      </svg>
+                    )}
+                  </div>
+                  {/* Message */}
+                  <span className="text-sm font-medium">{message}</span>
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -255,7 +277,7 @@ const ComingSoonPage: React.FC = () => {
           </div>
           {/* Right: Copyright */}
           <div className="sm:flex-1 flex justify-center sm:justify-end select-none hover:scale-110 transition-transform duration-300 text-center">
-            © 2025 Krishnakumbhaj. Crafted with React & Next.js
+            © 2026 Krishnakumbhaj. Crafted with React & Next.js
           </div>
         </div>
       </footer>

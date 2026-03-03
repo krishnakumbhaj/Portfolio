@@ -1,12 +1,17 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
 import Footer from '@/components/Footer';
 import Code from '@/components/Code';
 import Front from '@/components/Front';
 import Philosophy from '@/components/Philosophy';
 import HowIBuild from '@/components/HowIBuild';
 import ActiveFocus from '@/components/ActiveFocus';
+import Starfield from '@/components/Starfield';
+import Logo from '@/Images/logo.png';
+
 
 const ScrollIndicator = ({ activeSection, onSectionClick }: { 
   activeSection: string; 
@@ -50,59 +55,67 @@ const ScrollIndicator = ({ activeSection, onSectionClick }: {
 
 const Page = () => {
   const [activeSection, setActiveSection] = useState('front');
+  const [isScrolling, setIsScrolling] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const sections = useMemo(() => ['front', 'philosophy', 'code', 'how-i-build', 'active-focus', 'footer'], []);
 
+  // Handle scroll snap detection
   useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
     const handleScroll = () => {
-      let current = 'front';
-
-      for (const sectionId of sections) {
-        const element = document.getElementById(sectionId);
-        if (element) {
-          const rect = element.getBoundingClientRect();
-          // Check if section is in the viewport (with 100px threshold)
-          if (rect.top <= 100 && rect.bottom >= 100) {
-            current = sectionId;
-            break;
-          }
-        }
+      if (isScrolling) return;
+      
+      const scrollTop = container.scrollTop;
+      const sectionHeight = window.innerHeight;
+      const currentIndex = Math.round(scrollTop / sectionHeight);
+      const currentSection = sections[Math.min(currentIndex, sections.length - 1)];
+      
+      if (currentSection !== activeSection) {
+        setActiveSection(currentSection);
       }
-
-      setActiveSection(current);
     };
 
-    window.addEventListener('scroll', handleScroll);
-    handleScroll(); // Initial check
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [sections, activeSection, isScrolling]);
 
-    return () => window.removeEventListener('scroll', handleScroll);
+  const scrollToSection = useCallback((sectionId: string) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    const sectionIndex = sections.indexOf(sectionId);
+    if (sectionIndex === -1) return;
+    
+    setIsScrolling(true);
+    setActiveSection(sectionId);
+    
+    container.scrollTo({
+      top: sectionIndex * window.innerHeight,
+      behavior: 'smooth'
+    });
+    
+    // Reset scrolling flag after animation
+    setTimeout(() => setIsScrolling(false), 800);
   }, [sections]);
-
-  const scrollToSection = (sectionId: string) => {
-    const element = document.getElementById(sectionId);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
 
   const navigateToNextSection = useCallback(() => {
     const currentIndex = sections.findIndex(s => s === activeSection);
     if (currentIndex < sections.length - 1) {
-      const nextSection = sections[currentIndex + 1];
-      scrollToSection(nextSection);
+      scrollToSection(sections[currentIndex + 1]);
     }
-  }, [activeSection, sections]);
+  }, [activeSection, sections, scrollToSection]);
 
   const navigateToPrevSection = useCallback(() => {
     const currentIndex = sections.findIndex(s => s === activeSection);
     if (currentIndex > 0) {
-      const prevSection = sections[currentIndex - 1];
-      scrollToSection(prevSection);
+      scrollToSection(sections[currentIndex - 1]);
     }
-  }, [activeSection, sections]);
+  }, [activeSection, sections, scrollToSection]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if typing in input/textarea
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
@@ -118,20 +131,47 @@ const Page = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeSection, navigateToNextSection, navigateToPrevSection]);
+  }, [navigateToNextSection, navigateToPrevSection]);
 
   return (
-    <div className="relative">
+    <div className="relative bg-black">
+      {/* Global Starfield Background */}
+      <Starfield starCount={350} speed={0.2} />
+      
+      {/* Scroll Indicator */}
       <ScrollIndicator 
         activeSection={activeSection} 
         onSectionClick={scrollToSection}
       />
-      <Front />
-      <Philosophy />
-      <Code />
-      <HowIBuild />
-      <ActiveFocus />
-      <Footer />
+      
+      {/* Snap Scroll Container */}
+      <div 
+        ref={scrollContainerRef}
+        className="h-screen overflow-y-scroll snap-y snap-mandatory"
+        style={{ scrollBehavior: 'smooth' }}
+      >
+        <Front />
+        <Philosophy />
+        <Code />
+        <HowIBuild />
+        <ActiveFocus />
+        <Footer />
+      </div>
+
+      {/* SIA Chat FAB — fixed bottom-right */}
+      <Link
+        href="/chat"
+        className="fixed bottom-6 right-6 z-50 group flex items-center gap-0 bg-[#1a1a1a]/90 backdrop-blur-md border border-white/10 rounded-full shadow-2xl shadow-black/50 hover:border-[#cde7c1]/30 hover:shadow-[#cde7c1]/10 transition-all duration-300 hover:scale-105 active:scale-95 pr-1"
+      >
+        <div className="flex items-center">
+          <Image
+            src={Logo}
+            alt="SIA"
+            className="w-12 h-12 object-cover rounded-full"
+          />
+         
+        </div>
+      </Link>
     </div>
   );
 };

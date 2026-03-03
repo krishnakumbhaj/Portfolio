@@ -1,6 +1,5 @@
 'use client';
 import React, { useRef, useEffect, useState } from 'react';
-import { SparklesCore } from './ui/sparkles';
 import { useScrollAnimation } from '@/hooks/useScrollAnimation';
 
 export default function ActiveFocus() {
@@ -29,20 +28,7 @@ export default function ActiveFocus() {
   }, [isVisible]);
 
   return (
-    <section id="active-focus" className="snap-section relative w-full min-h-screen overflow-hidden bg-black">
-      {/* Stars Background */}
-      <div className="w-full absolute inset-0 h-full z-10">
-        <SparklesCore
-          id="activeFocusSparkles"
-          background="transparent"
-          minSize={0.4}
-          maxSize={1.4}
-          particleDensity={20}
-          className="w-full h-full"
-          particleColor="#FFFFFF"
-        />
-      </div>
-
+    <section id="active-focus" className="snap-section snap-start relative w-full min-h-screen overflow-hidden bg-transparent">
       {/* Content */}
       <div ref={contentRef} className="relative z-20 max-w-3xl mx-auto px-6 sm:px-8 py-16 sm:py-20 flex flex-col justify-center min-h-screen">
         <h2 className={`text-2xl sm:text-3xl md:text-4xl font-medium tracking-tight mb-10 sm:mb-16 pb-0 sm:pb-4 border-b-0 sm:border-b border-[#294e90] text-white transition-opacity duration-1000 ${

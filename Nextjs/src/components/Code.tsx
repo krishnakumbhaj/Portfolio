@@ -2,7 +2,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import { Github } from 'lucide-react';
-import { SparklesCore } from './ui/sparkles';
 import Vox_logo_name from '@/app/images/Vox_Logo_name.png';
 import Vox_logo from '@/app/images/Vox_Logo.png';
 import Sotrian_logo from '@/app/images/Sotrian_logo.png';
@@ -257,21 +256,7 @@ const powerbi = () => {
   };
 
   return (
-    <div id="code" className='snap-section px-4 sm:px-8 md:px-16 py-5 bg-black relative overflow-hidden min-h-screen'>
-      {/* Sparkles Background */}
-      <div className="w-full absolute inset-0 h-full">
-        <SparklesCore
-          id="codeSparkles"
-          background="transparent"
-          minSize={0.4}
-          maxSize={1}
-          speed={0.5}
-          particleDensity={20}
-          className="w-full h-full"
-          particleColor="#FFFFFF"
-        />
-      </div>
-
+    <div id="code" className='snap-section snap-start px-4 sm:px-8 md:px-16 py-5 bg-transparent relative overflow-hidden min-h-screen'>
       <div className="flex flex-col md:flex-row h-screen bg-transparent text-neutral-300 relative z-10 gap-4 md:gap-0">
         {/* Left Sidebar */}
         <div className="w-full md:w-80 bg-neutral-900 backdrop-blur-sm rounded-3xl max-h-[40vh] md:max-h-[70vh] self-start mt-4 md:mt-8 overflow-hidden flex flex-col">

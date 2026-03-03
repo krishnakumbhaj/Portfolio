@@ -34,31 +34,31 @@ export default function EmailList({ initial }: { initial: EmailItem[] }) {
     <div className="space-y-3">
       {emails.length === 0 && (
         <div className="py-12 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-800 mb-4">
-            <svg className="w-8 h-8 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-zinc-800 mb-4">
+            <svg className="w-8 h-8 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
           </div>
-          <p className="text-slate-400 text-lg">No subscribers yet</p>
-          <p className="text-slate-500 text-sm mt-1">Start collecting emails to see them here</p>
+          <p className="text-zinc-400 text-lg">No subscribers yet</p>
+          <p className="text-zinc-500 text-sm mt-1">Start collecting emails to see them here</p>
         </div>
       )}
 
       {emails.map((item, index) => (
         <div 
           key={item._id} 
-          className="group relative bg-slate-800/30 hover:bg-slate-800/50 border border-slate-800 hover:border-slate-700 rounded-xl p-4 sm:p-5 transition-all duration-200 hover:shadow-lg"
+          className="group relative bg-[#111] hover:bg-[#161616] border border-zinc-800 hover:border-[#cde7c1]/20 rounded-xl p-4 sm:p-5 transition-all duration-200 hover:shadow-lg"
           style={{ animationDelay: `${index * 50}ms` }}
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-xs font-bold text-white shadow-md">
+                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#cde7c1]/20 to-[#cde7c1]/5 flex items-center justify-center text-xs font-bold text-[#cde7c1]">
                   {item.email.charAt(0).toUpperCase()}
                 </div>
                 <div className="font-medium text-white text-base">{item.email}</div>
               </div>
-              <div className="flex items-center gap-4 text-xs text-slate-500 ml-11">
+              <div className="flex items-center gap-4 text-xs text-zinc-500 ml-11">
                 <span className="flex items-center gap-1">
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />

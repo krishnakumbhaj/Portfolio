@@ -1,446 +1,347 @@
-# Complete FastAPI main.py
-from fastapi import FastAPI, HTTPException, Depends
+# FastAPI - AI Gateway for Portfolio Chat
+# Architecture: Frontend → FastAPI (SSE) → LangGraph Brain (streaming) → Response + Async MongoDB Storage
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import Optional, Dict, List, Any
-import pandas as pd
+from typing import Optional
 import httpx
 import asyncio
 import json
-from database_analyst_agent import DatabaseAnalystAgent
-from config import Config
+import os
+from datetime import datetime
+from dotenv import load_dotenv
 
-app = FastAPI(title="AI Database Analyst API", version="2.0.0")
+load_dotenv()
 
-# Add CORS middleware for NextJS frontend
+# LangGraph Brain
+from Brain import handle_query_stream, handle_query, handle_confirm, llm
+
+# =============================================================================
+# APP CONFIGURATION
+# =============================================================================
+
+app = FastAPI(
+    title="Portfolio AI Gateway",
+    description="Session-based AI chat gateway for portfolio",
+    version="1.0.0"
+)
+
+# CORS Configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://vox-phi.vercel.app",  # Remove trailing slash!
-        "https://*.vercel.app",  # Allow Vercel preview deployments
-        "http://localhost:3000",  # For local development
-        "http://127.0.0.1:3000"   # Alternative localhost
-    ],  
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        # Add your production domain here
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Configuration - Using environment variables
-import os
-FASTAPI_URL = os.getenv("FASTAPI_URL", "https://vox-9xr7.onrender.com")  # Your Render URL (this app)
-NEXTJS_API_URL = os.getenv("NEXTJS_API_URL", "https://vox-phi.vercel.app/api")  # Your Vercel API URL
-CHAT_SAVE_TIMEOUT = 10  # seconds
+# Next.js API URL for storing chat history
+NEXTJS_API_URL = os.getenv("NEXTJS_API_URL", "http://localhost:3000/api/portfolio-chat")
 
-# Global agent instance
-agent = None
-
-# Pydantic models for request/response
-class DatabaseConnection(BaseModel):
-    db_type: str
-    host: str
-    port: str
-    database: str
-    username: Optional[str] = None
-    password: Optional[str] = None
-
-class QueryRequest(BaseModel):
-    query: str
-    user_id: Optional[str] = None  # For logging purposes
-    chat_id: Optional[str] = None  # For reference
-
-class QueryResponse(BaseModel):
-    success: bool
-    response: str
-    sql_query: Optional[str] = None
-    data: Optional[List[Dict[str, Any]]] = None
-    visualization_data: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
-    message_id: Optional[str] = None  # Added for message tracking
-
-class ConnectionStatus(BaseModel):
-    connected: bool
-    tables_count: int
-    tables: List[str]
-    message: str
+# =============================================================================
+# MODELS
+# =============================================================================
 
 class ChatRequest(BaseModel):
     message: str
-    user_id: str
-    chat_id: Optional[str] = None  # If None, create new chat
+    session_id: Optional[str] = None
 
 class ChatResponse(BaseModel):
-    success: bool
-    message_id: Optional[str] = None
-    chat_id: Optional[str] = None
     response: str
-    error: Optional[str] = None
+    session_id: str
+    remembered_info: dict = {}
 
-def get_agent():
-    """Dependency to get or create agent instance"""
-    global agent
-    if agent is None:
-        try:
-            agent = DatabaseAnalystAgent()
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to initialize agent: {str(e)}")
-    return agent
+class ConfirmRequest(BaseModel):
+    session_id: str
+    action: str  # "confirmed" or "cancelled"
+    reason: Optional[str] = None
 
-async def send_to_nextjs(endpoint: str, data: Dict[str, Any], method: str = "POST") -> Dict[str, Any]:
+class SummarizeRequest(BaseModel):
+    session_id: str
+
+# =============================================================================
+# IN-MEMORY SESSION STORAGE (will be replaced by LangGraph memory)
+# =============================================================================
+
+sessions: dict = {}
+
+# =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+
+async def store_chat_async(session_id: str, user_message: str, ai_response: str):
     """
-    Send data to NextJS API
-    Returns response data or raises exception
+    Asynchronously send chat data to Next.js API for MongoDB storage.
+    This runs in the background and doesn't block the response.
     """
     try:
-        url = f"{NEXTJS_API_URL}/{endpoint}"
-        async with httpx.AsyncClient(timeout=CHAT_SAVE_TIMEOUT) as client:
-            if method.upper() == "POST":
-                response = await client.post(url, json=data)
-            elif method.upper() == "GET":
-                response = await client.get(url, params=data)
-            elif method.upper() == "DELETE":
-                response = await client.delete(url)
-            else:
-                raise ValueError(f"Unsupported method: {method}")
-            
+        async with httpx.AsyncClient() as client:
+            payload = {
+                "session_id": session_id,
+                "user_message": user_message,
+                "ai_response": ai_response,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            response = await client.post(
+                f"{NEXTJS_API_URL}/message",
+                json=payload,
+                timeout=10.0
+            )
             if response.status_code == 200:
-                result = response.json()
-                print(f"✅ NextJS API call successful: {endpoint}")
-                return result
+                print(f"✅ Chat stored for session: {session_id}")
             else:
-                print(f"❌ NextJS API error: {response.status_code} - {response.text}")
-                raise HTTPException(status_code=response.status_code, detail=f"NextJS API error: {response.text}")
-                
-    except httpx.TimeoutException:
-        print(f"⏰ Timeout calling NextJS API: {endpoint}")
-        raise HTTPException(status_code=504, detail="NextJS API timeout")
+                print(f"⚠️ Failed to store chat: {response.status_code}")
     except Exception as e:
-        print(f"❌ Error calling NextJS API: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"NextJS API error: {str(e)}")
+        print(f"❌ Error storing chat: {e}")
+
+# =============================================================================
+# ROUTES
+# =============================================================================
 
 @app.get("/")
 async def root():
-    """Health check endpoint"""
-    return {"message": "AI Database Analyst API v2.0", "status": "active"}
+    return {
+        "status": "online",
+        "service": "Portfolio AI Gateway",
+        "version": "1.0.0"
+    }
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint for monitoring"""
-    return {"status": "healthy", "message": "FastAPI backend is running"}
+    return {"status": "healthy"}
 
-@app.get("/agent-info")
-async def get_agent_info(agent: DatabaseAnalystAgent = Depends(get_agent)):
-    """Get information about the agent capabilities"""
-    return agent.get_agent_info()
-
-@app.post("/connect", response_model=ConnectionStatus)
-async def connect_database(connection: DatabaseConnection, agent: DatabaseAnalystAgent = Depends(get_agent)):
-    """Connect to a database"""
-    try:
-        connection_string = agent.create_connection_string(
-            connection.db_type,
-            connection.host,
-            connection.port,
-            connection.database,
-            connection.username,
-            connection.password
-        )
-        
-        success, message = agent.connect_database(connection_string)
-        
-        if success:
-            status = agent.get_connection_status()
-            return ConnectionStatus(
-                connected=status['connected'],
-                tables_count=status['tables_count'],
-                tables=status['tables'],
-                message=message
-            )
-        else:
-            raise HTTPException(status_code=400, detail=message)
-            
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Connection failed: {str(e)}")
-
-@app.get("/connection-status", response_model=ConnectionStatus)
-async def get_connection_status(agent: DatabaseAnalystAgent = Depends(get_agent)):
-    """Get current database connection status"""
-    try:
-        status = agent.get_connection_status()
-        return ConnectionStatus(
-            connected=status['connected'],
-            tables_count=status['tables_count'],
-            tables=status['tables'],
-            message="Connected" if status['connected'] else "Not connected"
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/tables")
-async def get_table_info(agent: DatabaseAnalystAgent = Depends(get_agent)):
-    """Get information about database tables"""
-    try:
-        if not agent.get_connection_status()['connected']:
-            raise HTTPException(status_code=400, detail="No database connection")
-        return agent.get_table_info()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/refresh-schema")
-async def refresh_schema(agent: DatabaseAnalystAgent = Depends(get_agent)):
-    """Refresh database schema (useful after importing data)"""
-    try:
-        if not agent.get_connection_status()['connected']:
-            raise HTTPException(status_code=400, detail="No database connection")
-        
-        success, message = agent.refresh_schema()
-        
-        if success:
-            status = agent.get_connection_status()
-            return {
-                "success": True,
-                "message": message,
-                "tables_count": status['tables_count'],
-                "tables": status['tables']
-            }
-        else:
-            raise HTTPException(status_code=500, detail=message)
-            
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to refresh schema: {str(e)}")
-
-@app.post("/query")
-async def execute_query(request: QueryRequest, agent: DatabaseAnalystAgent = Depends(get_agent)):
-    """Execute natural language query with streaming response"""
+@app.post("/portfolio/chat", response_model=ChatResponse)
+async def portfolio_chat(request: ChatRequest):
+    """
+    Non-streaming fallback endpoint.
+    """
+    session_id = request.session_id or f"server_{datetime.now().timestamp()}"
     
-    async def generate_stream():
+    if session_id not in sessions:
+        sessions[session_id] = {
+            "created_at": datetime.utcnow().isoformat(),
+            "message_count": 0,
+            "remembered_info": {}
+        }
+    sessions[session_id]["message_count"] += 1
+    
+    try:
+        ai_response = await handle_query(request.message, session_id)
+    except Exception as e:
+        print(f"❌ Brain error: {e}")
+        ai_response = "I'm having trouble processing your request right now. Please try again."
+    
+    asyncio.create_task(
+        store_chat_async(session_id, request.message, ai_response)
+    )
+    
+    return ChatResponse(
+        response=ai_response,
+        session_id=session_id,
+        remembered_info=sessions[session_id].get("remembered_info", {})
+    )
+
+
+@app.post("/portfolio/chat/stream")
+async def portfolio_chat_stream(request: ChatRequest):
+    """
+    Real streaming SSE endpoint.
+    Streams actual LangGraph token-level chunks as they are generated.
+    """
+    session_id = request.session_id or f"server_{datetime.now().timestamp()}"
+    
+    if session_id not in sessions:
+        sessions[session_id] = {
+            "created_at": datetime.utcnow().isoformat(),
+            "message_count": 0,
+            "remembered_info": {}
+        }
+    sessions[session_id]["message_count"] += 1
+
+    async def event_generator():
+        full_response = ""
         try:
-            if not agent.get_connection_status()['connected']:
-                yield f"data: {json.dumps({'type': 'error', 'content': 'No database connection'})}\n\n"
-                return
-
-            # Log the request for debugging
-            print(f"🔍 Processing query for user: {request.user_id}, chat: {request.chat_id}")
-            print(f"📝 Query: {request.query}")
-
-            # Execute the query
-            result = agent.execute_natural_language_query(request.query)
-
-            # Stream the text response character by character
-            response_text = result['response']
-            yield f"data: {json.dumps({'type': 'start'})}\n\n"
-            
-            # Stream text in chunks of 3-5 characters for smooth animation
-            chunk_size = 4
-            for i in range(0, len(response_text), chunk_size):
-                chunk = response_text[i:i+chunk_size]
-                yield f"data: {json.dumps({'type': 'text', 'content': chunk})}\n\n"
-                await asyncio.sleep(0.02)  # Small delay for streaming effect
-            
-            yield f"data: {json.dumps({'type': 'text_complete'})}\n\n"
-
-            # Stream SQL query if available
-            if result['sql_query']:
-                await asyncio.sleep(0.1)  # Brief pause before SQL
-                yield f"data: {json.dumps({'type': 'sql', 'content': result['sql_query']})}\n\n"
-
-            # Stream data if available
-            if result['data'] is not None:
-                data_list = result['data'].to_dict('records')
-                
-                # Prepare visualization data
-                visualization_data = None
-                if not result['data'].empty:
-                    visualization_data = prepare_visualization_data(result['data'], request.query)
-                
-                await asyncio.sleep(0.1)  # Brief pause before data
-                yield f"data: {json.dumps({'type': 'data', 'content': data_list, 'visualization': visualization_data})}\n\n"
-
-            # Final success message
-            yield f"data: {json.dumps({'type': 'complete', 'success': result['success']})}\n\n"
-            print(f"✅ Query processed successfully: {result['success']}")
-
+            async for sse_chunk in handle_query_stream(request.message, session_id):
+                yield sse_chunk
+                # Capture the full response from the done event
+                if sse_chunk.startswith("data: "):
+                    try:
+                        payload = json.loads(sse_chunk[6:].strip())
+                        if payload.get("type") == "done":
+                            full_response = payload.get("full_response", "")
+                    except json.JSONDecodeError:
+                        pass
         except Exception as e:
-            error_msg = f"Query execution failed: {str(e)}"
-            print(f"❌ {error_msg}")
-            yield f"data: {json.dumps({'type': 'error', 'content': error_msg})}\n\n"
+            print(f"❌ Stream error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'content': 'Stream interrupted'})}\n\n"
+        
+        # Store to MongoDB after stream completes
+        if full_response:
+            asyncio.create_task(
+                store_chat_async(session_id, request.message, full_response)
+            )
     
     return StreamingResponse(
-        generate_stream(),
+        event_generator(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"  # Disable buffering for nginx
-        }
+            "X-Session-Id": session_id,
+        },
     )
 
-@app.post("/chat", response_model=ChatResponse)
-async def process_chat(request: ChatRequest, agent: DatabaseAnalystAgent = Depends(get_agent)):
+
+@app.post("/portfolio/chat/confirm")
+async def portfolio_chat_confirm(request: ConfirmRequest):
     """
-    Process chat message and save to NextJS
-    This endpoint handles the complete flow: Query -> Process -> Save -> Respond
+    Resume the LangGraph after human-in-the-loop confirmation.
+    Called when user clicks Confirm or Cancel on the connection card.
+    Streams the continuation response (tool execution + AI follow-up).
     """
-    try:
-        # Check database connection
-        if not agent.get_connection_status()['connected']:
-            return ChatResponse(
-                success=False,
-                error="No database connection. Please connect to a database first.",
-                response=""
-            )
-
-        print(f"🔍 Processing chat for user: {request.user_id}")
-        print(f"📝 Message: {request.message}")
-
-        # Execute the query
-        result = agent.execute_natural_language_query(request.message)
-
-        # Convert DataFrame to list of dictionaries for JSON serialization
-        data_list = None
-        if result['data'] is not None:
-            data_list = result['data'].to_dict('records')
-
-        # Prepare visualization data
-        visualization_data = None
-        if result['data'] is not None and not result['data'].empty:
-            visualization_data = prepare_visualization_data(result['data'], request.message)
-
-        # Prepare data for NextJS
-        chat_data = {
-            "userId": request.user_id,
-            "chatId": request.chat_id,  # Can be None for new chat
-            "message": request.message,
-            "response": result['response'],
-            "sqlQuery": result.get('sql_query'),
-            "data": data_list,
-            "visualizationData": visualization_data,
-            "success": result['success']
-        }
-
-        # Send to NextJS API to save
-        if request.chat_id:
-            # Add message to existing chat
-            nextjs_response = await send_to_nextjs(f"chat/{request.chat_id}", chat_data, "POST")
-        else:
-            # Create new chat
-            nextjs_response = await send_to_nextjs("chat", chat_data, "POST")
-
-        return ChatResponse(
-            success=True,
-            message_id=nextjs_response.get('messageId'),
-            chat_id=nextjs_response.get('chatId'),
-            response=result['response']
-        )
-
-    except HTTPException:
-        # Re-raise HTTP exceptions (from NextJS API calls)
-        raise
-    except Exception as e:
-        error_msg = f"Chat processing failed: {str(e)}"
-        print(f"❌ {error_msg}")
-        return ChatResponse(
-            success=False,
-            error=error_msg,
-            response=""
-        )
-
-def prepare_visualization_data(df: pd.DataFrame, query: str) -> Dict[str, Any]:
-    """Prepare chart data configuration for frontend"""
-    if df.empty or len(df.columns) < 2:
-        return None
-
-    query_lower = query.lower()
-    df_viz = df.head(20)  # Limit for visualization
-
-    # Determine chart type based on query
-    chart_type = "bar"  # default
-    if any(keyword in query_lower for keyword in ['trend', 'time', 'month', 'year', 'date']):
-        chart_type = "line"
-    elif any(keyword in query_lower for keyword in ['distribution', 'count', 'percentage']) and len(df_viz) <= 10:
-        chart_type = "pie"
-    elif any(keyword in query_lower for keyword in ['top', 'highest', 'best', 'most']):
-        chart_type = "bar"
-
-    # Prepare chart data
-    chart_data = {
-        'type': chart_type,
-        'data': df_viz.to_dict('records'),
-        'columns': list(df_viz.columns),
-        'x_axis': df_viz.columns[0],
-        'y_axis': df_viz.columns[1] if len(df_viz.columns) > 1 else df_viz.columns[0],
-        'title': f"Analysis: {query[:50]}{'...' if len(query) > 50 else ''}"
+    session_id = request.session_id
+    decision = {
+        "action": request.action,
+        "reason": request.reason or "",
     }
 
-    return chart_data
+    async def event_generator():
+        full_response = ""
+        try:
+            async for sse_chunk in handle_confirm(session_id, decision):
+                yield sse_chunk
+                if sse_chunk.startswith("data: "):
+                    try:
+                        payload = json.loads(sse_chunk[6:].strip())
+                        if payload.get("type") == "done":
+                            full_response = payload.get("full_response", "")
+                    except json.JSONDecodeError:
+                        pass
+        except Exception as e:
+            print(f"❌ Confirm stream error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'content': 'Confirmation failed'})}\n\n"
 
-@app.get("/suggestions")
-async def get_query_suggestions(partial_query: Optional[str] = "", agent: DatabaseAnalystAgent = Depends(get_agent)):
-    """Get query suggestions"""
-    try:
-        return {"suggestions": agent.get_query_suggestions(partial_query)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        if full_response:
+            asyncio.create_task(
+                store_chat_async(session_id, "[Connection Confirmed]", full_response)
+            )
 
-@app.post("/disconnect")
-async def disconnect_database(agent: DatabaseAnalystAgent = Depends(get_agent)):
-    """Disconnect from database"""
-    try:
-        agent.disconnect()
-        return {"message": "Disconnected successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
 
-# Additional endpoints for chat management
-@app.get("/user/{user_id}/chats")
-async def get_user_chats(user_id: str):
-    """Get all chats for a user"""
-    try:
-        response = await send_to_nextjs(f"user/{user_id}/chats", {}, "GET")
-        return response
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/chat/{chat_id}")
-async def get_chat(chat_id: str):
-    """Get specific chat with messages"""
+@app.post("/portfolio/chat/summarize")
+async def summarize_chat(request: SummarizeRequest):
+    """
+    Summarize a portfolio chat session using Gemini.
+    Fetches messages from Next.js API and returns an AI summary.
+    """
     try:
-        response = await send_to_nextjs(f"chat/{chat_id}", {}, "GET")
-        return response
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Fetch chat from MongoDB via Next.js API
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{NEXTJS_API_URL}/session/{request.session_id}",
+                timeout=10.0,
+            )
+            if resp.status_code != 200:
+                raise HTTPException(status_code=404, detail="Chat session not found")
 
-@app.delete("/chat/{chat_id}")
-async def delete_chat(chat_id: str):
-    """Delete a chat"""
-    try:
-        response = await send_to_nextjs(f"chat/{chat_id}", {}, "DELETE")
-        return response
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+            data = resp.json()
+            messages = data.get("messages", [])
 
-@app.post("/test-nextjs-connection")
-async def test_nextjs_connection():
-    """Test endpoint to verify NextJS API connectivity"""
-    try:
-        test_data = {
-            "test": True,
-            "message": "Connection test from FastAPI"
-        }
-        response = await send_to_nextjs("test", test_data, "POST")
-        return {
-            "success": True,
-            "message": "NextJS connection successful",
-            "response": response
-        }
+        if not messages:
+            return {"success": True, "summary": "No messages in this chat session."}
+
+        # Build conversation text for the LLM
+        conversation = "\n".join(
+            f"{'Visitor' if m.get('role') == 'user' else 'AI Assistant'}: {m.get('content', '')}"
+            for m in messages
+            if m.get('content')
+        )
+
+        from langchain_core.messages import HumanMessage, SystemMessage
+
+        summary_response = await llm.ainvoke([
+            SystemMessage(content=(
+                "You are summarizing a portfolio chat conversation between a visitor and Krishna Sharma's AI assistant. "
+                "Provide a concise 2-4 sentence summary covering: "
+                "1) What the visitor was interested in, "
+                "2) Key topics discussed, "
+                "3) Any outcomes (connection request, email sent, etc). "
+                "Be direct and factual."
+            )),
+            HumanMessage(content=f"Summarize this conversation:\n\n{conversation}"),
+        ])
+
+        summary_text = summary_response.content
+        if isinstance(summary_text, list):
+            summary_text = " ".join(
+                block.get("text", "") if isinstance(block, dict) else str(block)
+                for block in summary_text
+            )
+
+        return {"success": True, "summary": summary_text}
+
+    except HTTPException:
+        raise
     except Exception as e:
-        return {
-            "success": False,
-            "message": "NextJS connection failed",
-            "error": str(e)
-        }
+        print(f"❌ Summary error: {e}")
+        return {"success": False, "summary": "Failed to generate summary."}
+
+
+@app.delete("/portfolio/session/{session_id}")
+async def delete_session(session_id: str):
+    """
+    Delete/reset a session.
+    Called when user clicks "New Chat" or clears session.
+    """
+    
+    # Clear local session memory
+    if session_id in sessions:
+        del sessions[session_id]
+        print(f"🗑️ Session deleted: {session_id}")
+    
+    # Also clear from MongoDB via Next.js API
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.delete(
+                f"{NEXTJS_API_URL}/session/{session_id}",
+                timeout=10.0
+            )
+    except Exception as e:
+        print(f"⚠️ Error clearing session from DB: {e}")
+    
+    return {"success": True, "message": f"Session {session_id} cleared"}
+
+@app.get("/portfolio/session/{session_id}")
+async def get_session(session_id: str):
+    """
+    Get session info (for debugging/admin purposes).
+    """
+    if session_id not in sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    return {
+        "session_id": session_id,
+        "data": sessions[session_id]
+    }
+
+# =============================================================================
+# RUN SERVER
+# =============================================================================
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

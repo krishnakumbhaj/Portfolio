@@ -8,8 +8,8 @@ import { useRouter } from 'next/navigation';
 import { signInSchema } from '@/schemas/signInSchema';
 import { z } from 'zod';
 import Image from 'next/image';
-import Logo_name from '@/app/images/Logo_name.png';
-import Logo from '@/app/images/Logo.png';
+import Logo_name from '@/app/images/logo_name.png';
+import Logo from '@/app/images/logo.png';
 import {
   Form,
   FormField,
@@ -77,10 +77,10 @@ export default function SignInForm() {
   return (
     <div className="min-h-screen flex bg-[#262624] items-center justify-center  px-4">
       <div className="w-full max-w-md bg-[#30302e] border border-zinc-700 rounded-lg p-6 shadow-lg">
-       <div className='flex gap-3  items-center mb-2'>
+       <div className='flex  items-center mb-2'>
        
-              <Image src={Logo} alt="Logo" className="w-12 h-12 text-white" />
-               <Image src={Logo_name} alt="Logo Name" className="w-24 h-9 " />
+              <Image src={Logo} alt="Logo" className="w-28 h-20 text-white" />
+               <Image src={Logo_name} alt="Logo Name" className="w-24 h-12 -ml-6 " />
        
                </div>
         <p className="text-center text-zinc-400  text-4xl mb-6">
@@ -157,12 +157,7 @@ export default function SignInForm() {
           </form>
         </Form>
 
-        <p className="text-center text-zinc-400 mt-6 text-sm">
-          Don&apos;t have an account?{' '}
-          <Link href="/sign-up" className="text-[#ff9542] hover:underline">
-            Sign up
-          </Link>
-        </p>
+       
       </div>
     </div>
   );

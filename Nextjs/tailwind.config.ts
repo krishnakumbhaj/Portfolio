@@ -15,6 +15,9 @@ module.exports = {
   darkMode: ["class", "class"],
   theme: {
   	extend: {
+  		fontFamily: {
+  			bodoni: ['var(--font-bodoni)', 'serif'],
+  		},
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
@@ -67,6 +70,7 @@ module.exports = {
   plugins: [
     addVariablesForColors, 
     require("tailwindcss-animate"),
+    require("@tailwindcss/typography"),
     function ({ addUtilities }: any) {
       addUtilities({
         '.scrollbar-hide': {

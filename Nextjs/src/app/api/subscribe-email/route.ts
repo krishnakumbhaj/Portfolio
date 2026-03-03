@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: true,
-        message: "Email submitted successfully! We'll be in touch soon.",
+        message: "All set. I’ll reach out.",
       },
       { status: 201 }
     );

@@ -1,0 +1,25 @@
+# Python virtualenv
+env/
+venv/
+
+# Byte-compiled / cache
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# Environment files (injected via docker-compose env_file)
+.env
+
+# Git
+.git/
+.gitignore
+
+# Misc
+.DS_Store
+*.log
+
+# Unused setup scripts
+setup_gmail_oauth.py

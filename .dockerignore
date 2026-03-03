@@ -1,0 +1,30 @@
+# Ignore everything by default, then whitelist what we need
+# (Agent source + the Nextjs images for email embedding)
+
+# Node / Nextjs build artefacts  
+Nextjs/node_modules/
+Nextjs/.next/
+Nextjs/out/
+
+# Python virtualenv inside Agent/
+Agent/env/
+Agent/__pycache__/
+Agent/**/__pycache__/
+Agent/**/*.pyc
+
+# Environment files
+Agent/.env
+Nextjs/.env
+Nextjs/.env.*
+
+# Version control & editor
+.git/
+.gitignore
+.DS_Store
+*.log
+
+# Top-level Docker files already in build context — exclude to reduce image size
+docker-compose.yml
+Nextjs/Dockerfile
+Nextjs/.dockerignore
+Agent/Dockerfile

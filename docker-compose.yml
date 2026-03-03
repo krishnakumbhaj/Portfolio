@@ -1,0 +1,49 @@
+services:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Next.js Frontend
+  # ─────────────────────────────────────────────────────────────────────────
+  nextjs:
+    build:
+      context: ./Nextjs
+      dockerfile: Dockerfile
+      args:
+        # Baked into the JS bundle — set to wherever end-users' browsers
+        # can reach the agent (for local use localhost:8000 is fine)
+        NEXT_PUBLIC_FASTAPI_URL: ${NEXT_PUBLIC_FASTAPI_URL:-http://localhost:8000}
+    container_name: portfolio_nextjs
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./Nextjs/.env
+    environment:
+      - NODE_ENV=production
+      # Must match the public URL where the app is served
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+    depends_on:
+      - agent
+    networks:
+      - portfolio_net
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # FastAPI Agent
+  # ─────────────────────────────────────────────────────────────────────────
+  agent:
+    build:
+      context: .           # portfolios/ root — gives access to both Agent/ and Nextjs/
+      dockerfile: Agent/Dockerfile
+    container_name: portfolio_agent
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./Agent/.env
+    environment:
+      # Override so the agent calls Next.js via Docker's internal network
+      - NEXTJS_API_URL=http://nextjs:3000/api/portfolio-chat
+    networks:
+      - portfolio_net
+
+networks:
+  portfolio_net:
+    driver: bridge

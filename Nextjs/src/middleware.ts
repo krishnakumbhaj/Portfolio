@@ -1,7 +1,6 @@
 // middleware.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
-export { default } from 'next-auth/middleware';
 
 export const config = {
   matcher: [
@@ -10,7 +9,7 @@ export const config = {
     '/sign-up', 
     '/', 
     '/verify/:path*',
-    '/((?!api/auth|_next/static|_next/image|favicon.ico).*)',
+    '/chat/:path*',
   ],
 };
 
@@ -18,7 +17,8 @@ export async function middleware(request: NextRequest) {
   const token = await getToken({ req: request });
   const url = request.nextUrl;
 
-  if (url.pathname.startsWith('/api/auth')) {
+  // Never block API routes (FastAPI calls these without auth)
+  if (url.pathname.startsWith('/api')) {
     return NextResponse.next();
   }
 

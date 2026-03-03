@@ -42,10 +42,9 @@
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 0;
-  overflow-y: scroll;
+  overflow: hidden;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE and Edge */
-  scroll-snap-type: y mandatory;
 }
 
 html::-webkit-scrollbar {
@@ -53,11 +52,11 @@ html::-webkit-scrollbar {
 }
 
 body {
-  overflow-y: scroll;
+  overflow: hidden;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE and Edge */
   font-family: var(--font-default), sans-serif;
-  scroll-behavior: smooth;
+  background: #000;
 }
 
 body::-webkit-scrollbar {
