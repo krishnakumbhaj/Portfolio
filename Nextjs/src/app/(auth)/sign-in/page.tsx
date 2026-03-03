@@ -8,8 +8,8 @@ import { useRouter } from 'next/navigation';
 import { signInSchema } from '@/schemas/signInSchema';
 import { z } from 'zod';
 import Image from 'next/image';
-import Logo_name from '../../images/logo_name.png';
-import Logo from '../../images/logo.png';
+import Logo_name from '@/Images/logo_name.png';
+import Logo from '@/Images/logo.png';
 import {
   Form,
   FormField,
