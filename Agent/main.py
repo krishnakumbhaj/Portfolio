@@ -22,6 +22,8 @@ from Brain import handle_query_stream, handle_query, handle_confirm, llm
 # APP CONFIGURATION
 # =============================================================================
 
+PORT = int(os.getenv("PORT", "8000"))
+
 app = FastAPI(
     title="Portfolio AI Gateway",
     description="Session-based AI chat gateway for portfolio",
@@ -229,7 +231,7 @@ async def portfolio_chat_confirm(request: ConfirmRequest):
 
         if full_response:
             asyncio.create_task(
-                store_chat_async(session_id, "[Connection Confirmed]", full_response)
+                store_chat_async(session_id, "Confirmed", full_response)
             )
 
     return StreamingResponse(
@@ -344,4 +346,4 @@ async def get_session(session_id: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=PORT, reload=True)

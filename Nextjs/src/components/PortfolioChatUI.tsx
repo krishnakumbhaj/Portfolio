@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Loader2,
   RefreshCw,
+  Plus,
   Sparkles,
   ArrowLeft,
   ArrowUp,
@@ -96,6 +97,100 @@ const SUGGESTED_QUESTIONS = [
   "What experience does he have?",
   "How can I connect with him?",
 ];
+
+// =============================================================================
+// STREAMING MARKDOWN WITH GEMINI-LIKE FADE-IN
+// =============================================================================
+
+function StreamingMarkdown({ content, isStreaming }: { content: string; isStreaming: boolean }) {
+  const committedRef = useRef(0);
+  const wordCounter = useRef(0);
+
+  const totalWords = content.split(/\s+/).filter(Boolean).length;
+
+  useEffect(() => {
+    if (!isStreaming) {
+      committedRef.current = 0;
+      return;
+    }
+    const timer = setTimeout(() => {
+      committedRef.current = totalWords;
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [totalWords, isStreaming]);
+
+  // Reset word counter before each render pass
+  wordCounter.current = 0;
+
+  const animateTextNode = (text: string): React.ReactNode => {
+    if (!isStreaming) return text;
+
+    const committed = committedRef.current;
+    const parts = text.split(/(\s+)/);
+
+    return (
+      <>
+        {parts.map((part, i) => {
+          if (/^\s*$/.test(part)) {
+            return <React.Fragment key={`s${i}`}>{part}</React.Fragment>;
+          }
+          const idx = wordCounter.current++;
+          if (idx < committed) {
+            return <React.Fragment key={`c${idx}`}>{part}</React.Fragment>;
+          }
+          const delay = (idx - committed) * 15;
+          return (
+            <span
+              key={`a${idx}`}
+              className="stream-word"
+              style={{ animationDelay: `${Math.min(delay, 150)}ms` }}
+            >
+              {part}
+            </span>
+          );
+        })}
+      </>
+    );
+  };
+
+  const processNode = (children: React.ReactNode): React.ReactNode => {
+    return React.Children.map(children, (child) => {
+      if (typeof child === "string") return animateTextNode(child);
+      if (typeof child === "number") return animateTextNode(String(child));
+      if (React.isValidElement(child) && (child as React.ReactElement<any>).props?.children != null) {
+        return React.cloneElement(
+          child as React.ReactElement<any>,
+          undefined,
+          processNode((child as React.ReactElement<any>).props.children)
+        );
+      }
+      return child;
+    });
+  };
+
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const streamingComponents: Record<string, React.FC<any>> = {
+    p: ({ node, children, ...props }: any) => <p {...props}>{processNode(children)}</p>,
+    li: ({ node, children, ...props }: any) => <li {...props}>{processNode(children)}</li>,
+    h1: ({ node, children, ...props }: any) => <h1 {...props}>{processNode(children)}</h1>,
+    h2: ({ node, children, ...props }: any) => <h2 {...props}>{processNode(children)}</h2>,
+    h3: ({ node, children, ...props }: any) => <h3 {...props}>{processNode(children)}</h3>,
+    h4: ({ node, children, ...props }: any) => <h4 {...props}>{processNode(children)}</h4>,
+    td: ({ node, children, ...props }: any) => <td {...props}>{processNode(children)}</td>,
+    th: ({ node, children, ...props }: any) => <th {...props}>{processNode(children)}</th>,
+    blockquote: ({ node, children, ...props }: any) => <blockquote {...props}>{processNode(children)}</blockquote>,
+  };
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={isStreaming ? streamingComponents : undefined}
+    >
+      {content}
+    </ReactMarkdown>
+  );
+}
 
 // =============================================================================
 // PORTFOLIO CHAT UI COMPONENT
@@ -607,9 +702,9 @@ export default function PortfolioChatUI() {
   // ==========================================================================
 
   return (
-    <div className="h-dvh bg-[#282828] flex flex-col overflow-hidden relative font-bodoni">
+    <div className="h-dvh bg-[#171717] flex flex-col overflow-hidden relative">
       {/* Header */}
-      <header className="border-b border-white/10 bg-[#282828]/80 backdrop-blur-md sticky top-0 z-10 flex-shrink-0">
+      <header className="border-b border-white/10 bg-[#171616] backdrop-blur-md sticky top-0 z-10 flex-shrink-0">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
           <div className="flex items-center gap-3 sm:gap-4">
             <Link
@@ -620,27 +715,28 @@ export default function PortfolioChatUI() {
             </Link>
             <div className="flex justify-start items-center gap-0">
               <div className="flex justify-center items-center overflow-hidden flex-shrink-0">
-                <Image
+                {/* <Image
                   src={Logo}
                   alt="Logo"
-                  className="w-14 h-14 ml-2 sm:w-16 sm:h-16 object-cover"
-                />
+                  className="w-14 h-14 ml-3 sm:w-16 sm:h-16 object-cover"
+                /> */}
               </div>
               <Image
                 src={Logo_name}
                 alt="Logo Name"
-                className="w-14 h-14 sm:w-16 sm:h-10 object-contain -ml-3"
+                className="w-14 h-14 sm:w-20 sm:h-20 object-contain -ml-3"
               />
+              
             </div>
               
           </div>
 
           <button
             onClick={resetChat}
-            className="flex items-center gap-2 px-3 py-2 text-white/60 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+            className="flex items-center gap-2 px-2 py-2 bg-[#6e5dff] rounded-full text-white hover:text-white hover:bg-[#6e5dff]/80  transition-colors"
           >
-            <RefreshCw className="w-4 h-4" />
-            <span className="text-sm hidden sm:inline">New Chat</span>
+            <Plus className="w-7 h-7" />
+            {/* <span className="text-sm hidden sm:inline">New Chat</span> */}
           </button>
         </div>
       </header>
@@ -659,8 +755,8 @@ export default function PortfolioChatUI() {
           {/* Empty State */}
           {!isLoadingHistory && messages.length === 0 && (
             <div className="text-center py-12 sm:py-20">
-              <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                <Sparkles className="w-8 h-8 text-white" />
+              <div className="w-16 h-16 mx-auto mb-6 rounded-2xl  flex items-center justify-center">
+                <Image src={Logo} alt="Logo" className="w-16 h-16 text-white" />
               </div>
               <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
                 Hey there!
@@ -698,18 +794,18 @@ export default function PortfolioChatUI() {
                   <div className="flex justify-end group/user">
                     <div className="max-w-[80%] sm:max-w-[75%]">
                       {editingId === message.id ? (
-                        <div className="bg-[#1a1a1a] border border-[#cde7c1]/30 rounded-2xl overflow-hidden shadow-lg shadow-black/30">
+                        <div className="bg-[#1a1a1a] border border-[#6e5dff]/30 rounded-2xl overflow-hidden shadow-lg shadow-black/30">
                           {/* Green accent bar */}
-                          <div className="h-0.5 bg-gradient-to-r from-[#cde7c1] via-[#cde7c1]/50 to-transparent" />
+                          <div className="h-0.5 bg-gradient-to-r from-[#6e5dff] via-[#6e5dff]/50 to-transparent" />
                           <div className="p-4">
                             <div className="flex items-center gap-2 mb-3">
-                              <Pencil className="w-3.5 h-3.5 text-[#cde7c1]/60" />
-                              <span className="text-xs text-[#cde7c1]/60 font-medium uppercase tracking-wider">Editing message</span>
+                              <Pencil className="w-3.5 h-3.5 text-[#6e5dff]/60" />
+                              <span className="text-xs text-[#6e5dff]/60 font-medium uppercase tracking-wider">Editing message</span>
                             </div>
                             <textarea
                               value={editText}
                               onChange={(e) => setEditText(e.target.value)}
-                              className="w-full bg-white/[0.03] border border-white/10 text-white text-[15px] sm:text-base leading-relaxed resize-none outline-none min-h-[80px] rounded-xl p-3 focus:border-[#cde7c1]/30 transition-colors placeholder:text-white/20"
+                              className="w-full bg-white/[0.03] border border-white/10 text-white text-[15px] sm:text-base leading-relaxed resize-none outline-none min-h-[80px] rounded-xl p-3 focus:border-[#6e5dff]/30 transition-colors placeholder:text-white/20"
                               autoFocus
                               placeholder="Edit your message..."
                               onKeyDown={(e) => {
@@ -735,7 +831,7 @@ export default function PortfolioChatUI() {
                                 <button
                                   onClick={() => submitEdit(message.id)}
                                   disabled={!editText.trim()}
-                                  className="flex items-center gap-1.5 px-4 py-2 text-xs text-[#1a1a1a] bg-[#cde7c1] hover:bg-[#b8d9a8] rounded-xl font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                  className="flex items-center gap-1.5 px-4 py-2 text-xs text-[#1a1a1a] bg-[#6e5dff] hover:bg-[#b8d9a8] rounded-xl font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                   <ArrowUp className="w-3 h-3" />
                                   Send
@@ -766,7 +862,7 @@ export default function PortfolioChatUI() {
                               title="Copy"
                             >
                               {copiedId === message.id ? (
-                                <Check className="w-3 h-3 text-[#cde7c1] animate-in zoom-in duration-200" />
+                                <Check className="w-3 h-3 text-[#6e5dff] animate-in zoom-in duration-200" />
                               ) : (
                                 <Copy className="w-3 h-3" />
                               )}
@@ -819,15 +915,13 @@ export default function PortfolioChatUI() {
 
                             prose-hr:border-white/10 prose-hr:my-8"
                         >
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {message.content}
-                          </ReactMarkdown>
+                          <StreamingMarkdown content={message.content} isStreaming={!!message.isStreaming} />
                         </div>
                       ) : message.isStreaming ? (
                         <div className="flex items-center gap-3 py-2">
                           {activeTool && getToolLogo(activeTool) ? (
                             <div className="relative w-8 h-8 flex-shrink-0">
-                              <div className="absolute inset-0 rounded-full bg-[#cde7c1]/10 animate-ping" />
+                              <div className="absolute inset-0 rounded-full bg-[#6e5dff]/10 animate-ping" />
                               <div className="relative w-8 h-8 rounded-full overflow-hidden border border-white/10 animate-pulse">
                                 <Image
                                   src={getToolLogo(activeTool)!}
@@ -863,7 +957,7 @@ export default function PortfolioChatUI() {
                                 title="Copy response"
                               >
                                 {copiedId === message.id ? (
-                                  <Check className="w-3.5 h-3.5 text-[#cde7c1] animate-in zoom-in duration-200" />
+                                  <Check className="w-3.5 h-3.5 text-[#6e5dff] animate-in zoom-in duration-200" />
                                 ) : (
                                   <Copy className="w-3.5 h-3.5" />
                                 )}
@@ -873,7 +967,7 @@ export default function PortfolioChatUI() {
                                 className={cn(
                                   "p-1.5 rounded-lg transition-all",
                                   reactions[message.id] === "like"
-                                    ? "text-[#cde7c1] bg-[#cde7c1]/10"
+                                    ? "text-[#6e5dff] bg-[#6e5dff]/10"
                                     : "text-white/20 hover:text-white/50 hover:bg-white/5"
                                 )}
                                 title="Helpful"
@@ -934,15 +1028,15 @@ export default function PortfolioChatUI() {
             {/* Connection Confirmation Card — dark + green theme */}
             {confirmationData && (
               <div className="my-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-[#1a1a1a] border border-[#cde7c1]/15 rounded-2xl overflow-hidden shadow-2xl shadow-black/50">
+                <div className="bg-[#1a1a1a] border border-[#6e5dff]/15 rounded-2xl overflow-hidden shadow-2xl shadow-black/50">
                   {/* Green accent top bar */}
-                  <div className="h-1 bg-gradient-to-r from-[#cde7c1] via-[#cde7c1]/60 to-transparent" />
+                  <div className="h-1 bg-gradient-to-r from-[#6e5dff] via-[#6e5dff]/60 to-transparent" />
 
                   {/* Header */}
                   <div className="px-6 py-4 border-b border-white/5">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#cde7c1]/10 flex items-center justify-center">
-                        <Mail className="w-5 h-5 text-[#cde7c1]" />
+                      <div className="w-10 h-10 rounded-full bg-[#6e5dff]/10 flex items-center justify-center">
+                        <Mail className="w-5 h-5 text-[#6e5dff]" />
                       </div>
                       <div>
                         <h3 className="text-white font-semibold text-lg">
@@ -958,7 +1052,7 @@ export default function PortfolioChatUI() {
                   {/* Details */}
                   <div className="p-6 space-y-3">
                     <div className="flex items-start gap-3 p-3 bg-white/[0.03] rounded-xl">
-                      <User className="w-4 h-4 text-[#cde7c1] mt-0.5 flex-shrink-0" />
+                      <User className="w-4 h-4 text-[#6e5dff] mt-0.5 flex-shrink-0" />
                       <div>
                         <p className="text-white/40 text-xs uppercase tracking-wider mb-0.5">Name</p>
                         <p className="text-white text-sm font-medium">{confirmationData.details.name}</p>
@@ -966,7 +1060,7 @@ export default function PortfolioChatUI() {
                     </div>
 
                     <div className="flex items-start gap-3 p-3 bg-white/[0.03] rounded-xl">
-                      <Mail className="w-4 h-4 text-[#cde7c1]/70 mt-0.5 flex-shrink-0" />
+                      <Mail className="w-4 h-4 text-[#6e5dff]/70 mt-0.5 flex-shrink-0" />
                       <div>
                         <p className="text-white/40 text-xs uppercase tracking-wider mb-0.5">Email</p>
                         <p className="text-white text-sm font-medium">{confirmationData.details.email}</p>
@@ -1019,7 +1113,7 @@ export default function PortfolioChatUI() {
                       disabled={isConfirming}
                       className={cn(
                         "flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-medium text-sm transition-all",
-                        "bg-[#cde7c1] text-[#1a1a1a] hover:bg-[#b8d9a8] active:scale-[0.98]",
+                        "bg-[#6e5dff] text-white hover:bg-[#6e5dff]/80 active:scale-[0.98]",
                         isConfirming && "opacity-50 cursor-not-allowed"
                       )}
                     >
@@ -1057,14 +1151,14 @@ export default function PortfolioChatUI() {
                   className={cn(
                     "w-full text-left rounded-xl p-4 border transition-all hover:scale-[1.01] active:scale-[0.99]",
                     connectionResult.action === 'sent'
-                      ? "bg-[#cde7c1]/5 border-[#cde7c1]/20 hover:border-[#cde7c1]/40"
+                      ? "bg-[#6e5dff]/5 border-[#6e5dff]/20 hover:border-[#6e5dff]/40"
                       : "bg-white/[0.02] border-white/10 hover:border-white/20"
                   )}
                 >
                   <div className="flex items-center gap-3">
                     {connectionResult.action === 'sent' ? (
-                      <div className="w-8 h-8 rounded-full bg-[#cde7c1]/10 flex items-center justify-center flex-shrink-0">
-                        <CheckCircle2 className="w-4 h-4 text-[#cde7c1]" />
+                      <div className="w-8 h-8 rounded-full bg-[#6e5dff]/10 flex items-center justify-center flex-shrink-0">
+                        <CheckCircle2 className="w-4 h-4 text-[#6e5dff]" />
                       </div>
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center flex-shrink-0">
@@ -1074,7 +1168,7 @@ export default function PortfolioChatUI() {
                     <div className="flex-1 min-w-0">
                       <p className={cn(
                         "text-sm font-medium",
-                        connectionResult.action === 'sent' ? "text-[#cde7c1]" : "text-white/50"
+                        connectionResult.action === 'sent' ? "text-[#6e5dff]" : "text-white/50"
                       )}>
                         {connectionResult.action === 'sent'
                           ? `Connection email sent to ${connectionResult.details.name}`
@@ -1111,13 +1205,13 @@ export default function PortfolioChatUI() {
             <div className={cn(
               "h-1",
               connectionResult.action === 'sent'
-                ? "bg-gradient-to-r from-[#cde7c1] via-[#cde7c1]/60 to-transparent"
+                ? "bg-gradient-to-r from-[#6e5dff] via-[#6e5dff]/60 to-transparent"
                 : "bg-gradient-to-r from-white/20 via-white/10 to-transparent"
             )} />
             <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {connectionResult.action === 'sent' ? (
-                  <CheckCircle2 className="w-5 h-5 text-[#cde7c1]" />
+                  <CheckCircle2 className="w-5 h-5 text-[#6e5dff]" />
                 ) : (
                   <XCircle className="w-5 h-5 text-white/40" />
                 )}
@@ -1136,7 +1230,7 @@ export default function PortfolioChatUI() {
             {/* Modal Body */}
             <div className="p-6 space-y-3">
               <div className="flex items-start gap-3 p-3 bg-white/[0.03] rounded-xl">
-                <User className="w-4 h-4 text-[#cde7c1] mt-0.5 flex-shrink-0" />
+                <User className="w-4 h-4 text-[#6e5dff] mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-white/40 text-xs uppercase tracking-wider mb-0.5">Name</p>
                   <p className="text-white text-sm font-medium">{connectionResult.details.name}</p>
@@ -1144,7 +1238,7 @@ export default function PortfolioChatUI() {
               </div>
 
               <div className="flex items-start gap-3 p-3 bg-white/[0.03] rounded-xl">
-                <Mail className="w-4 h-4 text-[#cde7c1]/70 mt-0.5 flex-shrink-0" />
+                <Mail className="w-4 h-4 text-[#6e5dff]/70 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-white/40 text-xs uppercase tracking-wider mb-0.5">Email</p>
                   <p className="text-white text-sm font-medium">{connectionResult.details.email}</p>
@@ -1212,7 +1306,7 @@ export default function PortfolioChatUI() {
 
       {/* Floating Input */}
       <div className="absolute bottom-0 left-0 right-0 z-10">
-        <div className="bg-gradient-to-t from-[#282828] via-[#282828]/95 to-transparent pt-6 pb-4 sm:pb-6 px-4 sm:px-6">
+        <div className="bg-gradient-to-t bg-[#171717] pt-6 pb-4 sm:pb-6 px-4 sm:px-6">
           <div className="max-w-3xl mx-auto">
             <PromptInput
               value={input}
@@ -1237,7 +1331,7 @@ export default function PortfolioChatUI() {
                       "h-9 w-9 rounded-full transition-all",
                       isLoading
                         ? "bg-white/10 hover:bg-white/20"
-                        : " bg-[#cde7c1] hover:bg-[#cde7c1]/80",
+                        : " bg-[#6e5dff] hover:bg-[#6e5dff]/80",
                       !isLoading &&
                         !input.trim() &&
                         "opacity-40 cursor-not-allowed"
@@ -1248,7 +1342,7 @@ export default function PortfolioChatUI() {
                     {isLoading ? (
                       <Square className="size-4 fill-white text-white" />
                     ) : (
-                      <ArrowUp className="size-5 text-green-95000" />
+                      <ArrowUp className="size-5 text-white" />
                     )}
                   </Button>
                 </PromptInputAction>

@@ -10,7 +10,7 @@ from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.types import interrupt, Command
-
+# from langchain_groq import ChatGroq
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 
@@ -25,7 +25,8 @@ from tools import all_tools
 # ─────────────────────── Environment ─────────────────────────
 load_dotenv()
 
-GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
 
 # ─────────────────────── Resume Context ─────────────────────────
 
@@ -34,8 +35,8 @@ KRISHNA SHARMA
 Location: Pandav Nagar, Meerut 250001, Uttar Pradesh, India
 Phone: +91 8899101201
 Email: krishnakumbhaj@gmail.com
-LinkedIn: linkedin.com/in/krishnasharma
-GitHub: github.com/krishnasharma
+LinkedIn: https://www.linkedin.com/in/krishna-sharma-92a441279/
+GitHub: github.com/krishnakumbhaj
 
 ─── EDUCATION ───
 • B.Tech in Computer Science (Data Science) — Meerut Institute of Engineering & Technology (Aug 2022 – Aug 2026)
@@ -68,7 +69,7 @@ GitHub: github.com/krishnasharma
 
 # ─────────────────────── System Prompt ─────────────────────────
 
-SYSTEM_PROMPT = f"""You are Krishna Sharma's portfolio AI assistant name sia. You represent Krishna on his personal portfolio website. Your role is to help visitors learn about Krishna, his skills, projects, experience, and how to connect with him.
+SYSTEM_PROMPT = f"""You are Krishna Sharma's portfolio AI assistant name Raven. You represent Krishna on his personal portfolio website. Your role is to help visitors learn about Krishna, his skills, projects, experience, and how to connect with him.
 
 ## Your Knowledge Base (Krishna's Resume):
 {RESUME_CONTEXT}
@@ -134,10 +135,11 @@ class GraphState(TypedDict):
 
 # ─────────────────────── LLM with Tools ─────────────────────────
 
+
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
     temperature=0.7,
-    api_key=GEMINI_API_KEY,
+    google_api_key=GOOGLE_API_KEY,
 )
 
 llm_with_tools = llm.bind_tools(all_tools)

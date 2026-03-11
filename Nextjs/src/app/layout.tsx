@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, Bodoni_Moda } from "next/font/google";
+import { Raleway, Bodoni_Moda } from "next/font/google";
 import "./globals.css";
 import AuthProvider from "./context/AuthProvider";
 import { Toaster } from "@/components/ui/toaster";
 import { LoadingProvider } from "@/app/context/LoadingContext";
 import AppWrapper from "@/components/AppWrapper";
 
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
+const raleway = Raleway({
+  variable: "--font-raleway",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["300", "400", "500", "600", "700"],
 });
 
 const bodoniModa = Bodoni_Moda({
@@ -29,8 +29,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${spaceGrotesk.variable} ${bodoniModa.variable}`}>
-      <body className="antialiased">
+    <html lang="en" className={`${raleway.variable} ${bodoniModa.variable}`}>
+      <body className={`${raleway.className} antialiased`}>
         <AuthProvider>
           <LoadingProvider>
             <AppWrapper>
