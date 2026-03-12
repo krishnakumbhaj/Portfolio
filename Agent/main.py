@@ -44,7 +44,7 @@ app.add_middleware(
 )
 
 # Next.js API URL for storing chat history
-NEXTJS_API_URL = os.getenv("NEXTJS_API_URL", "http://localhost:3000/api/portfolio-chat")
+NEXTJS_API_URL = os.getenv("NEXTJS_API_URL")
 
 # =============================================================================
 # MODELS

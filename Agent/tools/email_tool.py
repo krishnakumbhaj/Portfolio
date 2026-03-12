@@ -25,7 +25,7 @@ GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")    # 16-char app passwo
 OWNER_EMAIL = os.getenv("OWNER_EMAIL", GMAIL_ADDRESS)       # where YOU receive notifications
 
 # Next.js API URL for storing connections
-NEXTJS_API_URL = os.getenv("NEXTJS_API_URL", "http://localhost:3000/api/portfolio-chat")
+NEXTJS_API_URL = os.getenv("NEXTJS_API_URL")
 
 # ─── Logo images for email embedding ────────────────────────────
 # Resolution order:
