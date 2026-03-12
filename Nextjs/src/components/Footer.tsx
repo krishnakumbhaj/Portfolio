@@ -264,13 +264,13 @@ const ComingSoonPage: React.FC = () => {
             </a>
           </div>
           {/* Center: Gmail */}
-          <div className="flex justify-center py-3 sm:py-5 sm:flex-1">
+          <div className="flex justify-center py-3 sm:py-6 sm:flex-1">
             <a href="mailto:krishnakumbhaj@gmail.com" className="hover:scale-110 transition-transform duration-300">
               <Image
                 src={Gmail}
                 alt="Gmail"
-                width={32}
-                height={32}
+                width={42}
+                height={42}
                 className="rounded-full object-cover sm:w-[40px] sm:h-[40px]"
               />
             </a>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Loader2,
   Plus,
@@ -97,96 +97,12 @@ const SUGGESTED_QUESTIONS = [
 ];
 
 // =============================================================================
-// STREAMING MARKDOWN WITH GEMINI-LIKE FADE-IN
+// STREAMING CURSOR (blinking caret at end of streaming text)
 // =============================================================================
 
-function StreamingMarkdown({ content, isStreaming }: { content: string; isStreaming: boolean }) {
-  const committedRef = useRef(0);
-  const wordCounter = useRef(0);
-
-  const totalWords = content.split(/\s+/).filter(Boolean).length;
-
-  useEffect(() => {
-    if (!isStreaming) {
-      committedRef.current = 0;
-      return;
-    }
-    const timer = setTimeout(() => {
-      committedRef.current = totalWords;
-    }, 600);
-    return () => clearTimeout(timer);
-  }, [totalWords, isStreaming]);
-
-  // Reset word counter before each render pass
-  wordCounter.current = 0;
-
-  const animateTextNode = (text: string): React.ReactNode => {
-    if (!isStreaming) return text;
-
-    const committed = committedRef.current;
-    const parts = text.split(/(\s+)/);
-
-    return (
-      <>
-        {parts.map((part, i) => {
-          if (/^\s*$/.test(part)) {
-            return <React.Fragment key={`s${i}`}>{part}</React.Fragment>;
-          }
-          const idx = wordCounter.current++;
-          if (idx < committed) {
-            return <React.Fragment key={`c${idx}`}>{part}</React.Fragment>;
-          }
-          const delay = (idx - committed) * 15;
-          return (
-            <span
-              key={`a${idx}`}
-              className="stream-word"
-              style={{ animationDelay: `${Math.min(delay, 150)}ms` }}
-            >
-              {part}
-            </span>
-          );
-        })}
-      </>
-    );
-  };
-
-  const processNode = (children: React.ReactNode): React.ReactNode => {
-    return React.Children.map(children, (child) => {
-      if (typeof child === "string") return animateTextNode(child);
-      if (typeof child === "number") return animateTextNode(String(child));
-      if (React.isValidElement(child) && (child as React.ReactElement<Record<string, unknown>>).props?.children != null) {
-        return React.cloneElement(
-          child as React.ReactElement<Record<string, unknown>>,
-          undefined,
-          processNode((child as React.ReactElement<Record<string, unknown>>).props.children as React.ReactNode)
-        );
-      }
-      return child;
-    });
-  };
-
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  const streamingComponents: Record<string, React.FC<any>> = {
-    p: ({ children, ...props }: any) => <p {...props}>{processNode(children)}</p>,
-    li: ({ children, ...props }: any) => <li {...props}>{processNode(children)}</li>,
-    h1: ({ children, ...props }: any) => <h1 {...props}>{processNode(children)}</h1>,
-    h2: ({ children, ...props }: any) => <h2 {...props}>{processNode(children)}</h2>,
-    h3: ({ children, ...props }: any) => <h3 {...props}>{processNode(children)}</h3>,
-    h4: ({ children, ...props }: any) => <h4 {...props}>{processNode(children)}</h4>,
-    td: ({ children, ...props }: any) => <td {...props}>{processNode(children)}</td>,
-    th: ({ children, ...props }: any) => <th {...props}>{processNode(children)}</th>,
-    blockquote: ({ children, ...props }: any) => <blockquote {...props}>{processNode(children)}</blockquote>,
-  };
-  /* eslint-enable @typescript-eslint/no-explicit-any */
-
+function StreamingCursor() {
   return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      components={isStreaming ? streamingComponents : undefined}
-    >
-      {content}
-    </ReactMarkdown>
+    <span className="inline-block w-[3px] h-[1.1em] bg-white/70 ml-0.5 align-middle animate-pulse" />
   );
 }
 
@@ -212,6 +128,7 @@ export default function PortfolioChatUI() {
   const [reactions, setReactions] = useState<Record<string, "like" | "dislike">>({}); 
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Load reactions from localStorage on mount
@@ -236,9 +153,20 @@ export default function PortfolioChatUI() {
   };
 
   // Auto-scroll to bottom
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    requestAnimationFrame(() => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTo({
+          top: scrollContainerRef.current.scrollHeight,
+          behavior,
+        });
+      }
+    });
+  }, []);
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
 
   // ==========================================================================
   // FETCH CHAT HISTORY
@@ -355,6 +283,8 @@ export default function PortfolioChatUI() {
     setIsLoading(true);
     setError(null);
     setActiveTool(null);
+    // Immediate scroll after adding user message
+    scrollToBottom();
 
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
@@ -740,7 +670,7 @@ export default function PortfolioChatUI() {
       </header>
 
       {/* Main Chat Area */}
-      <main className="flex-1 overflow-y-auto min-h-0 pb-36">
+      <main ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0 pb-36">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
           {/* Loading History */}
           {isLoadingHistory && (
@@ -913,33 +843,37 @@ export default function PortfolioChatUI() {
 
                             prose-hr:border-white/10 prose-hr:my-8"
                         >
-                          <StreamingMarkdown content={message.content} isStreaming={!!message.isStreaming} />
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                          {message.isStreaming && <StreamingCursor />}
                         </div>
                       ) : message.isStreaming ? (
                         <div className="flex items-center gap-3 py-2">
                           {activeTool && getToolLogo(activeTool) ? (
-                            <div className="relative w-8 h-8 flex-shrink-0">
-                              <div className="absolute inset-0 rounded-full bg-[#6e5dff]/10 animate-ping" />
-                              <div className="relative w-8 h-8 rounded-full overflow-hidden border border-white/10 animate-pulse">
-                                <Image
-                                  src={getToolLogo(activeTool)!}
-                                  alt={activeTool}
-                                  className="w-full h-full object-cover"
-                                />
+                            <>
+                              <div className="relative w-8 h-8 flex-shrink-0">
+                                <div className="absolute inset-0 rounded-full bg-[#6e5dff]/10 animate-ping" />
+                                <div className="relative w-8 h-8 rounded-full overflow-hidden border border-white/10 animate-pulse">
+                                  <Image
+                                    src={getToolLogo(activeTool)!}
+                                    alt={activeTool}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
                               </div>
-                            </div>
+                              <span className="text-sm text-white/40">
+                                {`Using ${activeTool.replace(/_/g, " ")}...`}
+                              </span>
+                            </>
                           ) : (
-                            <div className="flex gap-1">
-                              <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce [animation-delay:0ms]" />
-                              <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce [animation-delay:150ms]" />
-                              <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce [animation-delay:300ms]" />
-                            </div>
+                            <>
+                              <div className="flex gap-1">
+                                <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce [animation-delay:0ms]" />
+                                <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce [animation-delay:150ms]" />
+                                <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce [animation-delay:300ms]" />
+                              </div>
+                              <span className="text-sm text-white/40">Thinking...</span>
+                            </>
                           )}
-                          <span className="text-sm text-white/40">
-                            {activeTool
-                              ? `Using ${activeTool.replace(/_/g, " ")}...`
-                              : "Thinking..."}
-                          </span>
                         </div>
                       ) : null}
 

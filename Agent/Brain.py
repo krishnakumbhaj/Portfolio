@@ -314,12 +314,28 @@ async def handle_query_stream(query: str, session_id: str) -> AsyncGenerator[str
 
             # Tool calls — notify frontend
             elif kind == "on_tool_start":
-                tool_name = event.get("name", "tool")
-                yield f"data: {json.dumps({'type': 'tool_start', 'tool': tool_name})}\n\n"
+                tool_name = event.get("name", "")
+                # astream_events v2 may put the tool name in metadata
+                if not tool_name or tool_name == "tools":
+                    tool_name = (event.get("metadata", {}) or {}).get("langgraph_node", "")
+                    # Also try to get from data.input
+                    if not tool_name or tool_name == "tools":
+                        data = event.get("data", {})
+                        if isinstance(data, dict) and "input" in data:
+                            inp = data["input"]
+                            if isinstance(inp, dict):
+                                tool_name = inp.get("name", inp.get("type", "tool"))
+                            elif hasattr(inp, "name"):
+                                tool_name = inp.name
+                if tool_name:
+                    yield f"data: {json.dumps({'type': 'tool_start', 'tool': tool_name})}\n\n"
 
             elif kind == "on_tool_end":
-                tool_name = event.get("name", "tool")
-                yield f"data: {json.dumps({'type': 'tool_end', 'tool': tool_name})}\n\n"
+                tool_name = event.get("name", "")
+                if not tool_name or tool_name == "tools":
+                    tool_name = (event.get("metadata", {}) or {}).get("langgraph_node", "")
+                if tool_name:
+                    yield f"data: {json.dumps({'type': 'tool_end', 'tool': tool_name})}\n\n"
 
         # Check if graph is interrupted (waiting for confirmation)
         state = await graph.aget_state(config)
@@ -368,12 +384,26 @@ async def handle_confirm(session_id: str, decision: dict) -> AsyncGenerator[str,
                         yield f"data: {json.dumps({'type': 'token', 'content': text})}\n\n"
 
             elif kind == "on_tool_start":
-                tool_name = event.get("name", "tool")
-                yield f"data: {json.dumps({'type': 'tool_start', 'tool': tool_name})}\n\n"
+                tool_name = event.get("name", "")
+                if not tool_name or tool_name == "tools":
+                    tool_name = (event.get("metadata", {}) or {}).get("langgraph_node", "")
+                    if not tool_name or tool_name == "tools":
+                        data = event.get("data", {})
+                        if isinstance(data, dict) and "input" in data:
+                            inp = data["input"]
+                            if isinstance(inp, dict):
+                                tool_name = inp.get("name", inp.get("type", "tool"))
+                            elif hasattr(inp, "name"):
+                                tool_name = inp.name
+                if tool_name:
+                    yield f"data: {json.dumps({'type': 'tool_start', 'tool': tool_name})}\n\n"
 
             elif kind == "on_tool_end":
-                tool_name = event.get("name", "tool")
-                yield f"data: {json.dumps({'type': 'tool_end', 'tool': tool_name})}\n\n"
+                tool_name = event.get("name", "")
+                if not tool_name or tool_name == "tools":
+                    tool_name = (event.get("metadata", {}) or {}).get("langgraph_node", "")
+                if tool_name:
+                    yield f"data: {json.dumps({'type': 'tool_end', 'tool': tool_name})}\n\n"
 
         yield f"data: {json.dumps({'type': 'done', 'full_response': full_response})}\n\n"
 

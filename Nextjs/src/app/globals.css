@@ -74,22 +74,7 @@ body::-webkit-scrollbar {
 
 @layer base {}
 
-/* Gemini-like streaming text fade-in */
-@keyframes stream-fade-in {
-  from {
-    opacity: 0;
-    filter: blur(2px);
-  }
-  to {
-    opacity: 1;
-    filter: blur(0);
-  }
-}
 
-.stream-word {
-  opacity: 0;
-  animation: stream-fade-in 0.3s ease-out forwards;
-}
 
 @layer base {
   * {
