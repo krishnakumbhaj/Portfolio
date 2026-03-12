@@ -3,9 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Loader2,
-  RefreshCw,
   Plus,
-  Sparkles,
   ArrowLeft,
   ArrowUp,
   Square,
@@ -157,11 +155,11 @@ function StreamingMarkdown({ content, isStreaming }: { content: string; isStream
     return React.Children.map(children, (child) => {
       if (typeof child === "string") return animateTextNode(child);
       if (typeof child === "number") return animateTextNode(String(child));
-      if (React.isValidElement(child) && (child as React.ReactElement<any>).props?.children != null) {
+      if (React.isValidElement(child) && (child as React.ReactElement<Record<string, unknown>>).props?.children != null) {
         return React.cloneElement(
-          child as React.ReactElement<any>,
+          child as React.ReactElement<Record<string, unknown>>,
           undefined,
-          processNode((child as React.ReactElement<any>).props.children)
+          processNode((child as React.ReactElement<Record<string, unknown>>).props.children as React.ReactNode)
         );
       }
       return child;
@@ -170,15 +168,15 @@ function StreamingMarkdown({ content, isStreaming }: { content: string; isStream
 
   /* eslint-disable @typescript-eslint/no-explicit-any */
   const streamingComponents: Record<string, React.FC<any>> = {
-    p: ({ node, children, ...props }: any) => <p {...props}>{processNode(children)}</p>,
-    li: ({ node, children, ...props }: any) => <li {...props}>{processNode(children)}</li>,
-    h1: ({ node, children, ...props }: any) => <h1 {...props}>{processNode(children)}</h1>,
-    h2: ({ node, children, ...props }: any) => <h2 {...props}>{processNode(children)}</h2>,
-    h3: ({ node, children, ...props }: any) => <h3 {...props}>{processNode(children)}</h3>,
-    h4: ({ node, children, ...props }: any) => <h4 {...props}>{processNode(children)}</h4>,
-    td: ({ node, children, ...props }: any) => <td {...props}>{processNode(children)}</td>,
-    th: ({ node, children, ...props }: any) => <th {...props}>{processNode(children)}</th>,
-    blockquote: ({ node, children, ...props }: any) => <blockquote {...props}>{processNode(children)}</blockquote>,
+    p: ({ children, ...props }: any) => <p {...props}>{processNode(children)}</p>,
+    li: ({ children, ...props }: any) => <li {...props}>{processNode(children)}</li>,
+    h1: ({ children, ...props }: any) => <h1 {...props}>{processNode(children)}</h1>,
+    h2: ({ children, ...props }: any) => <h2 {...props}>{processNode(children)}</h2>,
+    h3: ({ children, ...props }: any) => <h3 {...props}>{processNode(children)}</h3>,
+    h4: ({ children, ...props }: any) => <h4 {...props}>{processNode(children)}</h4>,
+    td: ({ children, ...props }: any) => <td {...props}>{processNode(children)}</td>,
+    th: ({ children, ...props }: any) => <th {...props}>{processNode(children)}</th>,
+    blockquote: ({ children, ...props }: any) => <blockquote {...props}>{processNode(children)}</blockquote>,
   };
   /* eslint-enable @typescript-eslint/no-explicit-any */
 
